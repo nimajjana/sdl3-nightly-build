@@ -2,11 +2,9 @@
 name: build-sdl3
 
 on:
+  workflow_dispatch:
   schedule:
-    - cron: "0 0 * * 0"
-  push:
-    branches:
-      - main
+    - cron: "0 0 * * *"
 
 jobs:
   build:
