@@ -284,7 +284,7 @@ rem
 
 set CMAKE_COMMON_ARGS=-Wno-dev                ^
   -G Ninja                                    ^
-  -D CMAKE_BUILD_TYPE="Release"               ^
+  -D CMAKE_BUILD_TYPE="RelWithDebInfo"        ^
   -D CMAKE_POLICY_DEFAULT_CMP0074=NEW         ^
   -D CMAKE_POLICY_DEFAULT_CMP0091=NEW         ^
   -D CMAKE_POLICY_DEFAULT_CMP0092=NEW         ^
@@ -876,6 +876,9 @@ rem
 rem SDL
 rem
 
+copy /b/v/y %SOURCE%\SDL\src\dynapi\SDL_dynapi.h %SOURCE%\SDL\src\dynapi\SDL_dynapi.h.backup
+sed -i "s|#define SDL_DYNAMIC_API 1|#define SDL_DYNAMIC_API 0|g" %SOURCE%\SDL\src\dynapi\SDL_dynapi.h
+
 cmake.exe %CMAKE_COMMON_ARGS%      ^
   -S %SOURCE%\SDL                  ^
   -B %BUILD%\SDL                   ^
@@ -883,6 +886,9 @@ cmake.exe %CMAKE_COMMON_ARGS%      ^
   -D BUILD_SHARED_LIBS=ON          ^
   || exit /b 1
 ninja.exe -C %BUILD%\SDL install || exit /b 1
+
+copy /b/v/y %SOURCE%\SDL\src\dynapi\SDL_dynapi.h.backup %SOURCE%\SDL\src\dynapi\SDL_dynapi.h
+del %SOURCE%\SDL\src\dynapi\SDL_dynapi.h.backup
 
 rem
 rem SDL_image
@@ -1125,7 +1131,7 @@ if "%GITHUB_WORKFLOW%" neq "" (
 
   del /q %OUTPUT%\lib\SDL3_test.* 1>nul 2>nul
   del /q %OUTPUT%\include\SDL3\SDL_test*.h 1>nul 2>nul
-  rd /s /q %OUTPUT%\cmake %OUTPUT%\lib\pkgconfig %OUTPUT%\licenses %OUTPUT%\share 1>nul 2>nul
+  rd /s /q %OUTPUT%\cmake %OUTPUT%\lib\pkgconfig %OUTPUT%\share 1>nul 2>nul
 
   echo Creating SDL3-%TARGET_ARCH%-!OUTPUT_DATE!.zip
   %SZIP% a -y -r -mx=9 SDL3-%TARGET_ARCH%-!OUTPUT_DATE!.zip SDL3-%TARGET_ARCH% || exit /b 1
