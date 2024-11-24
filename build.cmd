@@ -42,7 +42,7 @@ set TIFF_VERSION=4.7.0
 set LIBWEBP_VERSION=1.4.0
 set AOM_VERSION=3.11.0
 set LIBYUV_VERSION=464c51a
-set DAV1D_VERSION=1.4.3
+set DAV1D_VERSION=1.5.0
 set LIBAVIF_VERSION=1.1.1
 set LIBJXL_VERSION=0.11.0
 set FREETYPE_VERSION=2.13.3
@@ -207,7 +207,7 @@ call :get "https://download.osgeo.org/libtiff/tiff-%TIFF_VERSION%.tar.gz"       
 call :get "https://storage.googleapis.com/downloads.webmproject.org/releases/webp/libwebp-%LIBWEBP_VERSION%.tar.gz"                                          || exit /b 1
 call :get "https://storage.googleapis.com/aom-releases/libaom-%AOM_VERSION%.tar.gz"                                                                          || exit /b 1
 call :get "https://chromium.googlesource.com/libyuv/libyuv/+archive/%LIBYUV_VERSION%.tar.gz" libyuv-%LIBYUV_VERSION%.tar.gz %SOURCE%\libyuv-%LIBYUV_VERSION% || exit /b 1
-call :get "https://code.videolan.org/videolan/dav1d/-/archive/%DAV1D_VERSION%/dav1d-%DAV1D_VERSION%.tar.bz2"                                                 || exit /b 1
+call :get "https://downloads.videolan.org/pub/videolan/dav1d/%DAV1D_VERSION%/dav1d-%DAV1D_VERSION%.tar.xz"                                                   || exit /b 1
 call :get "https://github.com/AOMediaCodec/libavif/archive/refs/tags/v%LIBAVIF_VERSION%.tar.gz" libavif-%LIBAVIF_VERSION%.tar.gz                             || exit /b 1
 call :get "https://github.com/libjxl/libjxl/archive/refs/tags/v%LIBJXL_VERSION%.tar.gz" libjxl-%LIBJXL_VERSION%.tar.gz                                       || exit /b 1
 call :get "https://download.savannah.gnu.org/releases/freetype/freetype-%FREETYPE_VERSION%.tar.xz"                                                           || exit /b 1
@@ -244,23 +244,17 @@ call :clone SDL_shadercross "https://github.com/libsdl-org/SDL_shadercross" main
 echo Updating SDL_shadercross submodules
 call git -C source\SDL_shadercross submodule update --init --recursive --quiet || exit /b 1
 call git -C source\SDL_shadercross submodule foreach git reset --quiet --hard HEAD || exit /b 1
-call git apply -p1 --directory=source/SDL_shadercross/external/DirectXShaderCompiler dxc.patch || exit /b 1
 
-pushd %SOURCE%\libyuv-%LIBYUV_VERSION%
-echo CMAKE_MINIMUM_REQUIRED(VERSION 2.8.12) > "CMakeLists.txt.correct"
-type "CMakeLists.txt"                      >> "CMakeLists.txt.correct"
-move /y "CMakeLists.txt.correct"              "CMakeLists.txt"
-popd
+rem
+rem apply patches
+rem 
 
-pushd %SOURCE%\game-music-emu-%LIBGME_VERSION%
-echo CMAKE_MINIMUM_REQUIRED(VERSION 2.8.12) > "CMakeLists.txt.correct"
-type "CMakeLists.txt"                      >> "CMakeLists.txt.correct"
-move /y "CMakeLists.txt.correct"              "CMakeLists.txt"
-popd
-
-pushd %SOURCE%\libjpeg-turbo-%LIBJPEGTURBO_VERSION%
-python.exe -c "print(open('CMakeLists.txt').read().replace('${CMAKE_SYSTEM_PROCESSOR}','""${CMAKE_SYSTEM_PROCESSOR}""'), file=open('CMakeLists.txt', 'w'))"
-popd
+call git apply -p1 --directory=source/SDL_shadercross                                patches/SDL_shadercross.patch       || exit /b 1
+call git apply -p1 --directory=source/SDL_shadercross/external/DirectXShaderCompiler patches/DirectXShaderCompiler.patch || exit /b 1
+call git apply -p1 --directory=source/libyuv-%LIBYUV_VERSION%                        patches/libyuv.patch                || exit /b 1
+call git apply -p1 --directory=source/game-music-emu-%LIBGME_VERSION%                patches/libgme.patch                || exit /b 1
+call git apply -p1 --directory=source/libjpeg-turbo-%LIBJPEGTURBO_VERSION%           patches/libjpeg-turbo.patch         || exit /b 1
+call git apply -p1 --directory=source/flac-%FLAC_VERSION%                            patches/flac.patch                  || exit /b 1
 
 rem
 rem MSVC Environment
@@ -268,7 +262,7 @@ rem
 
 set OLD_PATH=%PATH%
 
-where /Q cl.exe || (
+where /q cl.exe || (
   for /f "tokens=*" %%i in ('"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -requires Microsoft.VisualStudio.Workload.NativeDesktop -property installationPath') do set VS=%%i
   if "!VS!" equ "" (
     echo ERROR: Visual Studio installation not found
@@ -508,9 +502,7 @@ cmake.exe %CMAKE_COMMON_ARGS%              ^
   || exit /b 1
 ninja.exe -C %BUILD%\tiff-%TIFF_VERSION% install || exit /b 1
 
-pushd %DEPEND%
-python.exe -c "print(open('lib/cmake/tiff/TiffTargets.cmake').read().replace(r'\$<LINK_ONLY:ZLIB::ZLIB>;\$<LINK_ONLY:JPEG::JPEG>;\$<LINK_ONLY:JBIG::JBIG>;\$<LINK_ONLY:LERC::LERC>;\$<LINK_ONLY:liblzma::liblzma>;\$<LINK_ONLY:ZSTD::ZSTD>','zlibstatic.lib;jpeg-static.lib;jbig.lib;Lerc.lib;lzma.lib;zstd_static.lib'), file=open('lib/cmake/tiff/TiffTargets.cmake', 'w'))"
-popd
+call git apply -p1 --directory=depend-%TARGET_ARCH% patches/tiff.patch || exit /b 1
 
 rem
 rem aom
@@ -781,10 +773,6 @@ cmake.exe %CMAKE_COMMON_ARGS%      ^
   -D WITH_AVX=ON                   ^
   || exit /b 1
 ninja.exe -C %BUILD%\flac-%FLAC_VERSION% install || exit /b 1
-
-pushd %DEPEND%
-python.exe -c "print(open('include/FLAC/export.h').read().replace('DLL_EXPORT','FLAC_DLL_EXPORT'), file=open('include/FLAC/export.h', 'w'))"
-popd
 
 rem
 rem mpg123
